@@ -1,0 +1,12 @@
+{
+  "name": "MP Kasa",
+  "description": "Indore's community garbage mapping and MLA accountability platform.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "Interactive Maps",
+    "Real-time Reporting",
+    "Civic Accountability"
+  ]
+}

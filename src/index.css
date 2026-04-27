@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Syne", sans-serif;
+  
+  --color-bg: #0a0c0f;
+  --color-surface: #111418;
+  --color-surface-2: #181d24;
+  --color-border: #1e252f;
+  --color-accent: #f5c842;
+  --color-accent-2: #e8441a;
+  --color-text-muted: #6b7580;
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-gray-100 font-sans;
+  }
+}
+
+/* Leaflet Dark Mode Filter */
+.leaflet-tile-pane {
+  filter: brightness(0.55) saturate(0.4) hue-rotate(190deg);
+}
+
+.leaflet-container {
+  background: #0d1117 !important;
+}
+
+.custom-popup .leaflet-popup-content-wrapper {
+  @apply bg-surface border border-border rounded-xl shadow-2xl text-gray-100;
+}
+
+.custom-popup .leaflet-popup-tip {
+  @apply bg-surface;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+.animate-pulse-ring {
+  animation: pulse 2s infinite;
+}
