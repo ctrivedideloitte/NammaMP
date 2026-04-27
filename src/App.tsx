@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polygon } from 'react-leaflet';
 import L from 'leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -61,6 +61,18 @@ const createSeverityIcon = (report: Report) => {
     iconAnchor: [size/2, size/2],
     className: 'severity-marker'
   });
+};
+
+const WARD_POLYGONS: Record<string, [number, number][]> = {
+  '12': [
+    [22.76, 75.88], [22.77, 75.89], [22.76, 75.91], [22.74, 75.90], [22.75, 75.88]
+  ],
+  '31': [
+    [22.715, 75.85], [22.725, 75.85], [22.725, 75.87], [22.715, 75.87], [22.715, 75.85]
+  ],
+  '45': [
+    [22.69, 75.82], [22.70, 75.82], [22.70, 75.84], [22.69, 75.84], [22.69, 75.82]
+  ]
 };
 
 function MapFlyTo({ coords, zoom = 15 }: { coords: [number, number] | null, zoom?: number }) {
@@ -159,7 +171,41 @@ export default function App() {
     setReports(prev => prev.map(r => r.id === reportId ? { ...r, seenCount: r.seenCount + 1 } : r));
   };
 
-  const simulateSubmit = () => {
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCapturedImage(reader.result as string);
+        setUploadState('success');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const detectLocation = () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const { latitude, longitude } = position.coords;
+        // Basic check for Indore bounds (approx)
+        const isIndore = latitude > 22.5 && latitude < 23.0 && longitude > 75.7 && longitude < 76.1;
+        
+        if (isIndore) {
+          setLocationState('success');
+          // In a real app, we'd use a GeoJSON lookup here. For now we use the nearest ward logic.
+          setSelectedCoords([latitude, longitude]);
+        } else {
+          alert("Unauthorized Location: MP Kasa only operates within Indore City for accuracy.");
+        }
+      });
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!capturedImage || !selectedCoords) return;
+    
     setIsSubmitting(true);
     setTimeout(() => {
       setIsSubmitting(false);
@@ -167,24 +213,26 @@ export default function App() {
       
       const newReport: Report = {
         id: Date.now().toString(),
-        lat: 22.7196 + (Math.random() - 0.5) * 0.04,
-        lng: 75.8577 + (Math.random() - 0.5) * 0.04,
+        lat: selectedCoords[0],
+        lng: selectedCoords[1],
         status: 'open',
         severity,
         severityLevel: severity === 'Critical' ? 10 : severity === 'Severe' ? 8 : severity === 'Moderate' ? 5 : 2,
         wasteType,
         seenCount: 0,
         reportCount: 1,
-        ward: 'Ward 12 · Vijay Nagar',
-        location: 'Newly reported garbage site',
+        photoUrl: capturedImage,
+        ward: 'Ward 12 · Vijay Nagar', // In production this would be dynamically detected
+        location: 'Cleanliness Alert',
         timestamp: 'Just now',
-        mla: MLAS[0]
+        mla: MLAS[1] // Ramesh Mendola for Vijay Nagar
       };
       
       setReports(prev => [newReport, ...prev]);
+      setCapturedImage(null);
       setUploadState('idle');
       setLocationState('idle');
-    }, 1500);
+    }, 2000);
   };
 
   return (
@@ -202,6 +250,23 @@ export default function App() {
             attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
+          {/* WARD BOUNDARIES */}
+          {Object.entries(WARD_POLYGONS).map(([id, positions]) => {
+             const ward = WARDS.find(w => w.id === id);
+             const isResolved = ward && ward.openReports === 0 && (ward.resolvedReports || 0) > 0;
+             return (
+               <Polygon 
+                 key={id} 
+                 positions={positions} 
+                 pathOptions={{
+                   fillColor: isResolved ? '#10b981' : '#f43f5e',
+                   fillOpacity: 0.1,
+                   color: isResolved ? '#059669' : '#e11d48',
+                   weight: 1
+                 }}
+               />
+             );
+          })}
           {reports.map((report) => (
             <Marker 
               key={report.id} 
@@ -305,7 +370,7 @@ export default function App() {
                animate={{ opacity: 1 }}
                exit={{ opacity: 0 }}
                onClick={() => setIsPanelOpen(false)}
-               className="absolute inset-0 bg-slate-900/10 backdrop-blur-sm"
+               className="absolute inset-0 bg-slate-900/10"
              />
              <motion.div
                initial={{ x: "100%" }}
@@ -409,7 +474,7 @@ export default function App() {
                animate={{ opacity: 1 }}
                exit={{ opacity: 0 }}
                onClick={() => setSelectedReport(null)}
-               className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto"
+               className="absolute inset-0 bg-slate-900/40 pointer-events-auto"
              />
              <motion.div
                initial={{ scale: 0.9, y: 20, opacity: 0 }}
@@ -450,9 +515,13 @@ export default function App() {
                 <div className="flex-1 overflow-y-auto px-8 pb-8 space-y-6 hide-scrollbar">
                    {/* Main Image & Stats */}
                    <div className="relative rounded-3xl overflow-hidden aspect-[16/10] bg-slate-100 group">
-                      <div className="absolute inset-0 flex items-center justify-center text-slate-300">
-                         <Camera className="w-12 h-12" />
-                      </div>
+                      {selectedReport.photoUrl ? (
+                        <img src={selectedReport.photoUrl} className="w-full h-full object-cover" alt="Report" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-slate-300">
+                           <Camera className="w-12 h-12" />
+                        </div>
+                      )}
                       <button 
                         onClick={() => handleSeen(selectedReport.id)}
                         className="absolute bottom-4 right-4 bg-white/90 backdrop-blur px-4 py-2 rounded-2xl shadow-xl flex items-center gap-2 hover:bg-white transition-all pointer-events-auto"
@@ -581,7 +650,7 @@ export default function App() {
                initial={{ y: -20, opacity: 0 }}
                animate={{ y: 0, opacity: 1 }}
                exit={{ y: 20, opacity: 0 }}
-               className="bg-white/95 backdrop-blur-md rounded-[32px] p-8 max-w-sm w-full text-center shadow-3xl border border-slate-100 pointer-events-auto"
+               className="bg-white/95 rounded-[32px] p-8 max-w-sm w-full text-center shadow-3xl border border-slate-100 pointer-events-auto"
              >
                 <div className="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6 shadow-xl shadow-accent/20 text-white">
                   📸
@@ -610,7 +679,7 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsReportModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" 
+              className="absolute inset-0 bg-slate-900/40" 
             />
             
             <motion.div
@@ -637,75 +706,89 @@ export default function App() {
                </div>
 
                <div className="space-y-5">
-                 {/* UPLOAD SECTION */}
-                 <div 
-                   onClick={() => fileInputRef.current?.click()}
-                   className={cn(
-                    "border-3 border-dashed rounded-[32px] p-12 text-center cursor-pointer transition-all",
-                    uploadState === 'success' ? "border-green-500 bg-green-50" : "border-slate-100 bg-slate-50 hover:border-accent hover:bg-accent/5 focus:ring-4 focus:ring-accent/10"
-                   )}
-                 >
-                   <input 
-                     type="file" 
-                     accept="image/*" 
-                     capture="environment" 
-                     className="hidden" 
-                     ref={fileInputRef}
-                     onChange={() => setUploadState('success')}
-                   />
-                   <div className="flex flex-col items-center gap-4">
-                      {uploadState === 'success' ? (
-                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-2">
-                           <CheckCircle2 className="w-10 h-10 text-green-600" />
+                  {/* UPLOAD SECTION */}
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                     "border-3 border-dashed rounded-[32px] p-12 text-center cursor-pointer transition-all overflow-hidden relative",
+                     uploadState === 'success' ? "border-emerald-500 bg-emerald-50" : "border-slate-100 bg-slate-50 hover:border-accent hover:bg-accent/5"
+                    )}
+                  >
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment" 
+                      className="hidden" 
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                    />
+                    
+                    {capturedImage ? (
+                      <div className="absolute inset-0">
+                        <img src={capturedImage} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                           <div className="bg-white/90 p-3 rounded-2xl">
+                              <Camera className="w-6 h-6 text-accent" />
+                           </div>
                         </div>
-                      ) : (
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-4">
                         <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-2">
                            <Camera className="w-8 h-8 text-slate-300" />
                         </div>
-                      )}
-                      <div className="font-black text-xl text-slate-800">{uploadState === 'success' ? 'Ready to Submit!' : 'Click to Take Photo'}</div>
-                      <div className="text-[13px] text-slate-400 font-bold">Max 10MB · Indore region only</div>
-                   </div>
-                 </div>
+                        <div className="font-black text-xl text-slate-800">Tap to Take Photo</div>
+                        <div className="text-[13px] text-slate-400 font-bold uppercase tracking-widest">Real-time Verification Required</div>
+                      </div>
+                    )}
+                  </div>
 
-                 {/* LOCATION SECTION */}
-                 <div className="bg-slate-50 border border-slate-100 rounded-[28px] p-6 flex items-center gap-5">
+                  {/* LOCATION SECTION */}
+                  <div className="bg-slate-50 border border-slate-100 rounded-[28px] p-6 flex items-center gap-5">
                     <div className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center text-accent shadow-sm">
                       <MapPin className="w-6 h-6" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className={cn(
-                        "text-[14px] font-bold truncate",
-                        locationState === 'success' ? "text-green-600" : "text-slate-400"
+                        "text-[14px] font-black truncate uppercase tracking-tight",
+                        locationState === 'success' ? "text-emerald-700" : "text-slate-400"
                       )}>
-                        {locationState === 'success' ? '📍 Ward 12, Vijay Nagar, Indore' : 'Smart Location Detection'}
+                        {locationState === 'success' ? '📍 Verified Indore Location' : 'Auto-Detection Active'}
                       </div>
                     </div>
                     <button 
-                      onClick={() => setLocationState('success')}
-                      className="bg-accent text-white font-display font-bold text-[12px] px-6 py-3 rounded-2xl hover:shadow-lg transition-all"
+                      onClick={detectLocation}
+                      className="bg-accent text-white font-black text-[12px] uppercase px-8 py-4 rounded-2xl hover:shadow-lg transition-all"
                     >
-                      Detect
+                      {locationState === 'success' ? 'RESET' : 'DETECT'}
                     </button>
-                 </div>
+                  </div>
 
-                 {locationState === 'success' && (
-                   <motion.div 
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="p-5 bg-green-50 border border-green-100 rounded-[28px] flex items-center gap-4"
-                   >
-                     <Award className="w-8 h-8 text-green-600 shrink-0" />
-                     <div className="text-[13px] font-bold text-slate-800">
-                       <span className="text-green-700">Verified Indore Location</span><br />
-                       <span className="text-slate-500 text-[11px] font-medium uppercase tracking-widest">MLA Focus: Ramesh Mendola</span>
-                     </div>
-                   </motion.div>
-                 )}
+                  {locationState === 'success' && uploadState === 'success' && (
+                    <motion.div 
+                     initial={{ opacity: 0, scale: 0.95 }}
+                     animate={{ opacity: 1, scale: 1 }}
+                     className="p-6 bg-slate-50 border border-slate-100 rounded-[32px] space-y-4"
+                    >
+                      <div className="flex items-center justify-between">
+                         <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Report Preview</div>
+                         <div className="text-[10px] font-black text-accent bg-accent/5 px-2 py-0.5 rounded-md">Verified</div>
+                      </div>
+                      <div className="flex gap-4">
+                         <div className="w-16 h-16 rounded-2xl overflow-hidden border border-slate-100 shrink-0">
+                            <img src={capturedImage!} className="w-full h-full object-cover" />
+                         </div>
+                         <div className="flex-1 min-w-0">
+                            <div className="text-sm font-black text-slate-900 truncate">Cleanliness Alert @ Indore</div>
+                            <div className="text-[11px] font-bold text-slate-500 mt-0.5 uppercase">Tracing to MLA Office...</div>
+                         </div>
+                      </div>
+                    </motion.div>
+                  )}
 
-                 <button 
-                  onClick={simulateSubmit}
-                  disabled={uploadState === 'idle' || locationState === 'idle' || isSubmitting}
+                  <button 
+                   onClick={handleSubmit}
+                   disabled={uploadState === 'idle' || locationState === 'idle' || isSubmitting}
                   className="w-full bg-accent disabled:opacity-30 disabled:grayscale text-white font-display font-black text-xl py-6 rounded-[32px] flex items-center justify-center gap-4 transition-all hover:shadow-2xl hover:shadow-accent/40 active:translate-y-1"
                  >
                    {isSubmitting ? (
