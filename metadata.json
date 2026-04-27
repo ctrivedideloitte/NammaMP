@@ -2,7 +2,8 @@
   "name": "MP Kasa",
   "description": "Indore's community garbage mapping and MLA accountability platform.",
   "requestFramePermissions": [
-    "geolocation"
+    "geolocation",
+    "camera"
   ],
   "majorCapabilities": [
     "Interactive Maps",

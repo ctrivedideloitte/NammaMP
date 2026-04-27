@@ -1,10 +1,12 @@
 export type Status = 'open' | 'resolved';
+export type Severity = 'low' | 'medium' | 'high';
 
 export interface Report {
   id: string;
   lat: number;
   lng: number;
   status: Status;
+  severity: Severity;
   ward: string;
   location: string;
   timestamp: string;
