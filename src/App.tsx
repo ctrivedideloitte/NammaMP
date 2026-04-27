@@ -110,15 +110,19 @@ export default function App() {
 
   const handleShare = async (report: Report) => {
     const text = `🚨 Garbage at ${report.location}, ${report.ward}. Accountability needed from MLA ${report.mla.name}. Check it on MP Kasa!`;
-    if (navigator.share) {
+    const shareData = { title: 'MP Kasa Report', text, url: window.location.href };
+    
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
       try {
-        await navigator.share({ title: 'MP Kasa Report', text, url: window.location.href });
+        await navigator.share(shareData);
+        return;
       } catch (err) {
-        console.error(err);
+        console.error("Share failed", err);
       }
-    } else {
-      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
     }
+    
+    // Fallback: Twitter/X
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleViewMLA = (mlaName: string) => {
@@ -412,16 +416,16 @@ export default function App() {
                    <div className="flex gap-3">
                       <button 
                         onClick={() => handleShare(selectedReport)}
-                        className="flex-1 bg-slate-900 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2"
+                        className="flex-1 bg-slate-900 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-800 transition-all text-xs uppercase"
                       >
                          <Share2 className="w-4 h-4" />
-                         Share
+                         SPREAD WORD
                       </button>
                       <button 
                         onClick={() => handleViewMLA(selectedReport.mla.name)}
-                        className="flex-1 bg-white border-2 border-slate-900 text-slate-900 font-black py-4 rounded-2xl flex items-center justify-center"
+                        className="flex-1 bg-white border-2 border-slate-900 text-slate-900 font-black py-4 rounded-2xl flex items-center justify-center hover:bg-slate-50 transition-all text-xs uppercase"
                       >
-                         View MLA
+                         VIEW MLAS
                       </button>
                    </div>
                 </div>
@@ -457,52 +461,6 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
-
-      {/* FLOATING ACTION PILLS */}
-      <div className="absolute top-20 left-4 z-50 flex flex-col gap-2">
-         <div className="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-slate-100 flex flex-col items-center gap-1">
-            <span className="text-[18px] font-black text-accent">{reports.length}</span>
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Active</span>
-         </div>
-      </div>
-
-      {/* BOTTOM FLOATING CONTROLS */}
-      <div className="absolute bottom-32 right-4 z-50 flex flex-col gap-3">
-        <button 
-          onClick={handleLocateMe}
-          className="w-12 h-12 bg-white rounded-2xl shadow-2xl border border-slate-100 flex items-center justify-center text-slate-600 hover:text-accent transition-all active:scale-95"
-        >
-          <MapPin className="w-5 h-5" />
-        </button>
-        <button 
-          onClick={() => setSelectedCoords([22.7196, 75.8577])}
-          className="w-12 h-12 bg-white rounded-2xl shadow-2xl border border-slate-100 flex items-center justify-center text-slate-600 hover:text-accent transition-all active:scale-95"
-        >
-          <Maximize2 className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* THE PRIMARY ACTION: REPORT BUTTON */}
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50">
-        <button 
-          onClick={() => setIsReportModalOpen(true)}
-          className="bg-accent text-white font-display font-black px-10 py-5 rounded-full shadow-2xl shadow-accent/40 flex items-center gap-3 hover:-translate-y-1 active:translate-y-0 transition-all border-4 border-white"
-        >
-          <Camera className="w-6 h-6" />
-          REPORT GARBAGE
-        </button>
-      </div>
-
-      {/* BOTTOM DRAWER TRIGGER */}
-      <div className="absolute bottom-6 left-0 right-0 z-40 px-4">
-        <button 
-          onClick={() => setIsDrawerOpen(true)}
-          className="w-full bg-white/90 backdrop-blur-md h-12 rounded-2xl border border-slate-100 shadow-xl flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all"
-        >
-          <ChevronUp className="w-5 h-5" />
-          <span className="text-xs font-bold ml-2">Show Activity & Rankings</span>
-        </button>
-      </div>
 
       {/* REPORT MODAL */}
       <AnimatePresence>
@@ -629,271 +587,6 @@ export default function App() {
                  </div>
                </div>
             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* DRAWER FOR REPORTS/LEADERBOARD */}
-      <AnimatePresence>
-        {isDrawerOpen && (
-          <div className="fixed inset-0 z-[1000] flex items-end justify-center">
-             <motion.div 
-               initial={{ opacity: 0 }}
-               animate={{ opacity: 1 }}
-               exit={{ opacity: 0 }}
-               onClick={() => setIsDrawerOpen(false)}
-               className="absolute inset-0 bg-slate-900/10 backdrop-blur-sm"
-             />
-             <motion.div
-               initial={{ y: "100%" }}
-               animate={{ y: 0 }}
-               exit={{ y: "100%" }}
-               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-               className="relative w-full max-w-4xl bg-white rounded-t-[40px] shadow-3xl h-[80vh] flex flex-col overflow-hidden"
-             >
-                <div className="p-2 border-b border-slate-100 shrink-0">
-                   <div className="w-12 h-1 bg-slate-100 rounded-full mx-auto my-2" />
-                </div>
-
-                <div className="flex px-4 border-b border-slate-100 shrink-0">
-                  {[
-                    { id: 'reports', label: 'Recent Reports', icon: Clock },
-                    { id: 'leaderboard', label: 'MLA Performance', icon: Trophy },
-                    { id: 'wards', label: 'Ward Data', icon: MapIcon },
-                  ].map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setActiveTab(t.id as any)}
-                      className={cn(
-                        "flex-1 py-5 text-[13px] font-black transition-all border-b-4 flex items-center justify-center gap-3",
-                        activeTab === t.id 
-                          ? "text-accent border-accent" 
-                          : "text-slate-400 border-transparent hover:text-slate-600"
-                      )}
-                    >
-                      <t.icon className="w-5 h-5" />
-                      {t.label}
-                    </button>
-                  ))}
-                  <button onClick={() => setIsDrawerOpen(false)} className="px-6 border-l border-slate-100 hover:bg-slate-50 transition-colors">
-                     <X className="w-6 h-6 text-slate-400" />
-                  </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
-                   {activeTab === 'reports' && (
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {reports.map(report => (
-                          <div 
-                            key={report.id}
-                            onClick={() => { handleReportClick(report); setIsDrawerOpen(false); }}
-                            className="bg-white border border-slate-100 p-5 rounded-3xl hover:border-accent hover:shadow-xl transition-all cursor-pointer flex gap-4"
-                          >
-                             <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center shrink-0">
-                                <Camera className="w-6 h-6 text-slate-300" />
-                             </div>
-                             <div className="min-w-0">
-                                <div className="text-[14px] font-black leading-tight mb-1">{report.location}</div>
-                                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">{report.ward}</div>
-                                <div className="flex items-center gap-2">
-                                   <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center text-[8px] text-white font-black">{report.mla.avatar}</div>
-                                   <div className="text-[11px] font-bold text-slate-500">{report.mla.name}</div>
-                                </div>
-                             </div>
-                             <div className="ml-auto text-right flex flex-col justify-between">
-                                <div className={cn(
-                                  "w-2 h-2 rounded-full ml-auto",
-                                  report.status === 'resolved' ? "bg-green-500" : "bg-accent"
-                                )} />
-                                <div className="text-[10px] font-black text-slate-300">{report.timestamp}</div>
-                             </div>
-                          </div>
-                        ))}
-                     </div>
-                   )}
-
-                   {activeTab === 'leaderboard' && (
-                     <div className="space-y-3">
-                        {MLAS.sort((a,b) => b.reportCount - a.reportCount).map((mla, idx) => (
-                           <div key={mla.id} className="bg-white border border-slate-100 p-6 rounded-3xl flex items-center gap-6 shadow-sm">
-                              <div className="font-display font-black text-3xl text-slate-200 w-12 text-center">{idx + 1}</div>
-                              <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center font-black text-accent border border-slate-100 shadow-inner">
-                                 {mla.avatar}
-                              </div>
-                              <div className="flex-1">
-                                 <div className="text-lg font-black text-slate-900">{mla.name}</div>
-                                 <div className="text-sm text-slate-500 font-bold">{mla.ward}</div>
-                              </div>
-                              <div className="text-right">
-                                 <div className="text-2xl font-black text-accent">{mla.reportCount}</div>
-                                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reports</div>
-                              </div>
-                           </div>
-                        ))}
-                     </div>
-                   )}
-
-                   {activeTab === 'wards' && (
-                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {WARDS.map(ward => (
-                           <div key={ward.id} className="bg-white border border-slate-100 p-5 rounded-3xl text-center">
-                              <div className="text-2xl font-black mb-1">{ward.number}</div>
-                              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 truncate">{ward.name}</div>
-                              <div className="text-[11px] bg-accent/10 text-accent font-black py-1.5 rounded-xl border border-accent/20">
-                                 {ward.openReports} ACTIVE
-                              </div>
-                           </div>
-                        ))}
-                     </div>
-                   )}
-                </div>
-             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* REPORT DETAIL PANEL */}
-      <AnimatePresence>
-        {selectedReport && (
-          <div className="fixed inset-0 z-[1500] pointer-events-none flex items-center justify-end p-6 md:p-10">
-             <motion.div 
-               initial={{ opacity: 0 }}
-               animate={{ opacity: 1 }}
-               exit={{ opacity: 0 }}
-               onClick={() => setSelectedReport(null)}
-               className="absolute inset-0 bg-slate-900/10 backdrop-blur-sm pointer-events-auto"
-             />
-             <motion.div
-               initial={{ x: "100%" }}
-               animate={{ x: 0 }}
-               exit={{ x: "100%" }}
-               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-               className="relative w-full max-w-md bg-white rounded-[40px] shadow-3xl h-full flex flex-col overflow-hidden pointer-events-auto border border-slate-100"
-             >
-                <div className="h-64 bg-slate-100 relative group overflow-hidden">
-                   <div className="absolute inset-0 flex items-center justify-center text-slate-200">
-                      <Camera className="w-16 h-16" />
-                   </div>
-                   <div className="absolute top-6 right-6">
-                      <button 
-                        onClick={() => setSelectedReport(null)}
-                        className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white hover:text-slate-900 transition-all"
-                      >
-                         <X className="w-5 h-5" />
-                      </button>
-                   </div>
-                   <div className="absolute bottom-6 left-6 flex gap-2">
-                       <span className="bg-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest text-slate-900">
-                          {selectedReport.status}
-                       </span>
-                   </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-8">
-                   <div className="flex items-center gap-3 mb-6">
-                      <div className="w-12 h-12 bg-accent/10 rounded-2xl flex items-center justify-center text-accent">
-                         <MapPin className="w-6 h-6" />
-                      </div>
-                      <div>
-                         <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{selectedReport.ward}</div>
-                         <div className="text-xl font-black text-slate-900">{selectedReport.location}</div>
-                      </div>
-                   </div>
-
-                   <div className="space-y-8">
-                      <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-100">
-                         <div className="flex items-center gap-4 mb-4">
-                            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-xl shadow-sm font-black text-accent overflow-hidden">
-                               {selectedReport.mla.avatar}
-                            </div>
-                            <div>
-                               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned Accountability</div>
-                               <div className="text-[15px] font-black text-slate-900">{selectedReport.mla.name}</div>
-                            </div>
-                            <div className="ml-auto">
-                               <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-slate-400">
-                                  <Info className="w-4 h-4" />
-                               </button>
-                            </div>
-                         </div>
-                         <div className="text-[13px] text-slate-500 font-medium leading-relaxed">
-                            This report has been flagged in <strong>{selectedReport.mla.ward}</strong>.
-                            Pressure is on the ward office to resolve this site listed as <em>{selectedReport.severity}</em> severity.
-                         </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                         <div className="bg-slate-50 p-5 rounded-[28px] border border-slate-100 text-center">
-                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Time Logged</div>
-                            <div className="font-black text-lg">{selectedReport.timestamp}</div>
-                         </div>
-                         <div className="bg-slate-50 p-5 rounded-[28px] border border-slate-100 text-center">
-                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</div>
-                            <div className={cn(
-                              "font-black text-lg",
-                              selectedReport.status === 'resolved' ? 'text-green-600' : 'text-accent'
-                            )}>{selectedReport.status.toUpperCase()}</div>
-                         </div>
-                      </div>
-
-                      <div className="flex gap-3">
-                         <button className="flex-1 bg-slate-900 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-800 transition-all">
-                            <Share2 className="w-4 h-4" />
-                            SPREAD WORD
-                         </button>
-                         <button className="flex-1 bg-white border-2 border-slate-900 text-slate-900 font-black py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-50 transition-all">
-                            <ArrowRight className="w-4 h-4" />
-                            VIEW MLAS
-                         </button>
-                      </div>
-                   </div>
-                </div>
-             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* INSTRUCTION / ONBOARDING MODAL */}
-      <AnimatePresence>
-        {showInstructions && (
-          <div className="fixed inset-0 z-[5000] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-md">
-             <motion.div
-               initial={{ scale: 0.9, opacity: 0 }}
-               animate={{ scale: 1, opacity: 1 }}
-               className="bg-white rounded-[40px] p-10 md:p-14 max-w-2xl w-full text-center shadow-3xl"
-             >
-                <div className="w-20 h-20 bg-accent rounded-3xl flex items-center justify-center text-4xl mx-auto mb-8 shadow-2xl shadow-accent/40">
-                  📸
-                </div>
-                <h1 className="font-display font-black text-4xl md:text-5xl mb-4 tracking-tighter uppercase italic leading-none">
-                   Mapping MP Garbage <br/>
-                   <span className="text-accent underline">Public Accountability</span>
-                </h1>
-                <p className="text-lg text-slate-500 font-bold mb-10 leading-relaxed max-w-md mx-auto">
-                   Report garbage sites, identify location, and tag your MLA. Let's make Indore clean again.
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                   {[
-                     { step: '01', title: 'Take Photo', desc: 'Capture the mess' },
-                     { step: '02', title: 'Location', desc: 'Tag the ward' },
-                     { step: '03', title: 'Track', desc: 'Hold MLAs accountable' },
-                   ].map((s, i) => (
-                     <div key={i} className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                        <div className="text-accent font-black text-xl mb-2">{s.step}</div>
-                        <div className="font-black text-sm mb-1">{s.title}</div>
-                        <div className="text-[11px] font-bold text-slate-400">{s.desc}</div>
-                     </div>
-                   ))}
-                </div>
-
-                <button 
-                  onClick={handleOnboard}
-                  className="w-full bg-accent text-white font-black py-6 rounded-[32px] text-xl shadow-2xl shadow-accent/40 hover:-translate-y-1 transition-all"
-                >
-                   LET'S CLEAN INDORE 🚀
-                </button>
-             </motion.div>
           </div>
         )}
       </AnimatePresence>
