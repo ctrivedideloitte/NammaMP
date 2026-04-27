@@ -1,5 +1,6 @@
 export type Status = 'open' | 'resolved';
-export type Severity = 'low' | 'medium' | 'high';
+export type Severity = 'Minor' | 'Moderate' | 'Severe' | 'Critical';
+export type WasteType = 'Mixed Waste' | 'Plastic' | 'Organic' | 'Construction';
 
 export interface Report {
   id: string;
@@ -7,10 +8,14 @@ export interface Report {
   lng: number;
   status: Status;
   severity: Severity;
+  severityLevel: number; // 1-10
+  wasteType: WasteType;
   ward: string;
   location: string;
   timestamp: string;
   photoUrl?: string;
+  seenCount: number;
+  reportCount: number;
   mla: {
     name: string;
     ward: string;

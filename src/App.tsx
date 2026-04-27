@@ -20,17 +20,21 @@ import {
   ChevronUp,
   ArrowRight,
   Filter,
-  Maximize2
+  Maximize2,
+  ThumbsUp,
+  MessageSquare,
+  Shield
 } from 'lucide-react';
 import { INITIAL_REPORTS, MLAS, WARDS, CITIES } from './data';
-import { Report, Status, Severity } from './types';
+import { Report, Status, Severity, WasteType } from './types';
 import { cn } from './lib/utils';
 import 'leaflet/dist/leaflet.css';
 
 // Custom Marker for Severity (Namma Kasa Style)
-const createSeverityIcon = (severity: Severity, count: number = 0) => {
-  const size = severity === 'high' ? 48 : severity === 'medium' ? 36 : 24;
-  const color = severity === 'high' ? '#7f1d1d' : severity === 'medium' ? '#b91c1c' : '#f87171';
+const createSeverityIcon = (report: Report) => {
+  const complexity = report.reportCount > 1;
+  const size = report.severity === 'Critical' ? 48 : report.severity === 'Severe' ? 40 : report.severity === 'Moderate' ? 32 : 24;
+  const color = report.severity === 'Critical' ? '#7f1d1d' : report.severity === 'Severe' ? '#b91c1c' : report.severity === 'Moderate' ? '#ef4444' : '#f87171';
   
   return L.divIcon({
     html: `
@@ -44,11 +48,13 @@ const createSeverityIcon = (severity: Severity, count: number = 0) => {
         justify-content:center;
         font-family:Inter, sans-serif;
         font-weight:800;
-        font-size:${size / 3}px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        font-size:${size / 2.5}px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         border: 2px solid white;
+        position: relative;
       ">
-        ${count > 0 ? count : ''}
+        ${complexity ? `<div style="position:absolute; top:-4px; right:-4px; background:white; color:${color}; border-radius:10px; padding:2px 6px; font-size:10px; border:1px solid ${color}">${report.reportCount}</div>` : ''}
+        ${report.severityLevel}
       </div>
     `,
     iconSize: [size, size],
@@ -76,6 +82,8 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_REPORTS;
   });
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [severity, setSeverity] = useState<Severity>('Moderate');
+  const [wasteType, setWasteType] = useState<WasteType>('Mixed Waste');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [selectedCoords, setSelectedCoords] = useState<[number, number] | null>(null);
   const [activeCity, setActiveCity] = useState(CITIES[0]);
@@ -147,6 +155,10 @@ export default function App() {
     setShowInstructions(false);
   };
 
+  const handleSeen = (reportId: string) => {
+    setReports(prev => prev.map(r => r.id === reportId ? { ...r, seenCount: r.seenCount + 1 } : r));
+  };
+
   const simulateSubmit = () => {
     setIsSubmitting(true);
     setTimeout(() => {
@@ -158,7 +170,11 @@ export default function App() {
         lat: 22.7196 + (Math.random() - 0.5) * 0.04,
         lng: 75.8577 + (Math.random() - 0.5) * 0.04,
         status: 'open',
-        severity: 'high',
+        severity,
+        severityLevel: severity === 'Critical' ? 10 : severity === 'Severe' ? 8 : severity === 'Moderate' ? 5 : 2,
+        wasteType,
+        seenCount: 0,
+        reportCount: 1,
         ward: 'Ward 12 · Vijay Nagar',
         location: 'Newly reported garbage site',
         timestamp: 'Just now',
@@ -190,7 +206,7 @@ export default function App() {
             <Marker 
               key={report.id} 
               position={[report.lat, report.lng]} 
-              icon={createSeverityIcon(report.severity, 1)}
+              icon={createSeverityIcon(report)}
               eventHandlers={{
                 click: () => handleReportClick(report)
               }}
@@ -214,12 +230,32 @@ export default function App() {
           </button>
         </div>
 
-        <div className="flex gap-2 pointer-events-auto">
+        <div className="flex gap-2 pointer-events-auto items-center">
+          <div className="flex gap-2">
+            <select 
+              className="bg-white/95 backdrop-blur-md h-11 px-4 rounded-2xl shadow-xl border border-slate-100 text-[11px] font-black appearance-none"
+              defaultValue="All Severity"
+            >
+               <option>All Severity</option>
+               <option>Minor</option>
+               <option>Moderate</option>
+               <option>Severe</option>
+               <option>Critical</option>
+            </select>
+            <select 
+              className="bg-white/95 backdrop-blur-md h-11 px-4 rounded-2xl shadow-xl border border-slate-100 text-[11px] font-black appearance-none"
+              defaultValue="All Status"
+            >
+               <option>All Status</option>
+               <option>Active</option>
+               <option>Resolved</option>
+            </select>
+          </div>
           <button 
             onClick={() => setIsPanelOpen(true)}
-            className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-xl border border-slate-100 text-slate-600 hover:text-accent"
+            className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center shadow-xl border border-slate-100 text-slate-600 hover:text-accent"
           >
-            <LayoutList className="w-4 h-4" />
+            <LayoutList className="w-5 h-5" />
           </button>
         </div>
       </header>
@@ -367,66 +403,169 @@ export default function App() {
       {/* REPORT DETAIL PANEL OVERLAY (FIXED ON TOP OF MAP) */}
       <AnimatePresence>
         {selectedReport && (
-          <div className="fixed inset-0 z-[1500] pointer-events-none flex items-center justify-center md:items-start md:justify-end md:p-10 p-4">
+          <div className="fixed inset-0 z-[1500] pointer-events-none flex items-center justify-center md:p-10 p-4">
              <motion.div 
                initial={{ opacity: 0 }}
                animate={{ opacity: 1 }}
                exit={{ opacity: 0 }}
                onClick={() => setSelectedReport(null)}
-               className="absolute inset-0 bg-slate-900/10 backdrop-blur-sm pointer-events-auto"
+               className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto"
              />
              <motion.div
                initial={{ scale: 0.9, y: 20, opacity: 0 }}
                animate={{ scale: 1, y: 0, opacity: 1 }}
                exit={{ scale: 0.9, y: 20, opacity: 0 }}
-               className="relative w-full max-w-[400px] bg-white rounded-[40px] shadow-3xl overflow-hidden pointer-events-auto border border-slate-100 flex flex-col"
+               className="relative w-full max-w-[500px] bg-white rounded-[40px] shadow-3xl overflow-hidden pointer-events-auto border border-slate-100 flex flex-col h-[90vh]"
              >
-                <div className="h-48 bg-slate-50 flex items-center justify-center relative">
-                   <Camera className="w-12 h-12 text-slate-200" />
-                   <button 
-                     onClick={() => setSelectedReport(null)}
-                     className="absolute top-6 right-6 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg text-slate-400"
-                   >
-                     <X className="w-5 h-5" />
-                   </button>
-                   <div className="absolute top-6 left-6">
-                      <div className={cn(
-                        "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest",
-                        selectedReport.status === 'resolved' ? "bg-green-100 text-green-700" : "bg-accent text-white"
-                      )}>
-                        {selectedReport.status}
-                      </div>
-                   </div>
+                {/* Header Section */}
+                <div className="px-8 pt-6 pb-4 shrink-0">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex gap-2">
+                       <span className={cn(
+                         "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                         selectedReport.severity === 'Critical' ? "bg-red-50 text-red-600" :
+                         selectedReport.severity === 'Severe' ? "bg-orange-50 text-orange-600" :
+                         "bg-blue-50 text-blue-600"
+                       )}>
+                         <div className="w-2 h-2 rounded-full bg-current" />
+                         {selectedReport.severity}
+                       </span>
+                       <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                          {selectedReport.status === 'open' ? 'Unresolved' : 'Resolved'}
+                       </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                       <button onClick={() => handleShare(selectedReport)} className="p-2 text-slate-400 hover:text-slate-900"><Share2 className="w-5 h-5" /></button>
+                       <button onClick={() => setSelectedReport(null)} className="p-2 text-slate-400 hover:text-slate-900"><X className="w-5 h-5" /></button>
+                    </div>
+                  </div>
+                  
+                  <h3 className="text-2xl font-black text-slate-900 mb-1 leading-tight">{selectedReport.location}</h3>
+                  <div className="flex items-center gap-1 text-slate-400 font-bold text-xs">
+                     <MapPin className="w-3 h-3" />
+                     {selectedReport.ward}
+                  </div>
                 </div>
 
-                <div className="p-8">
-                   <div className="mb-6">
-                      <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">{selectedReport.ward}</div>
-                      <h3 className="text-xl font-black text-slate-900">{selectedReport.location}</h3>
+                <div className="flex-1 overflow-y-auto px-8 pb-8 space-y-6 hide-scrollbar">
+                   {/* Main Image & Stats */}
+                   <div className="relative rounded-3xl overflow-hidden aspect-[16/10] bg-slate-100 group">
+                      <div className="absolute inset-0 flex items-center justify-center text-slate-300">
+                         <Camera className="w-12 h-12" />
+                      </div>
+                      <button 
+                        onClick={() => handleSeen(selectedReport.id)}
+                        className="absolute bottom-4 right-4 bg-white/90 backdrop-blur px-4 py-2 rounded-2xl shadow-xl flex items-center gap-2 hover:bg-white transition-all pointer-events-auto"
+                      >
+                         <ThumbsUp className="w-4 h-4 text-orange-500" />
+                         <span className="text-xs font-black">I've seen this ({selectedReport.seenCount})</span>
+                      </button>
                    </div>
 
-                   <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 mb-8 flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center font-black text-accent shadow-sm">{selectedReport.mla.avatar}</div>
-                      <div className="flex-1">
-                         <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Responsibility</div>
-                         <div className="text-[15px] font-black">{selectedReport.mla.name}</div>
+                   <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-slate-50 border border-slate-100 p-4 rounded-3xl">
+                         <div className="text-accent text-xl font-black">{selectedReport.reportCount}</div>
+                         <div className="text-[9px] font-black text-slate-400 uppercase">Reports</div>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-100 p-4 rounded-3xl">
+                         <div className="text-orange-500 text-xl font-black">4</div>
+                         <div className="text-[9px] font-black text-slate-400 uppercase">Days</div>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-100 p-4 rounded-3xl">
+                         <div className="text-blue-500 text-xs font-black truncate">{selectedReport.wasteType}</div>
+                         <div className="text-[9px] font-black text-slate-400 uppercase">Waste Type</div>
                       </div>
                    </div>
 
-                   <div className="flex gap-3">
-                      <button 
-                        onClick={() => handleShare(selectedReport)}
-                        className="flex-1 bg-slate-900 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-800 transition-all text-xs uppercase"
-                      >
-                         <Share2 className="w-4 h-4" />
-                         SPREAD WORD
-                      </button>
-                      <button 
-                        onClick={() => handleViewMLA(selectedReport.mla.name)}
-                        className="flex-1 bg-white border-2 border-slate-900 text-slate-900 font-black py-4 rounded-2xl flex items-center justify-center hover:bg-slate-50 transition-all text-xs uppercase"
-                      >
-                         VIEW MLAS
-                      </button>
+                   {/* Accountability Section */}
+                   <div className="pt-4">
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 text-center">Accountability Hierarchy</div>
+                      
+                      <div className="relative flex flex-col items-center">
+                         <div className="bg-red-50 border border-red-100 px-6 py-2 rounded-2xl mb-8 relative z-10">
+                            <div className="text-[8px] font-black text-red-400 uppercase text-center mb-0.5">Your Ward</div>
+                            <div className="text-xs font-black text-red-700">{selectedReport.ward.split('·')[0].trim()}</div>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-48 h-12 -z-10 border-t-2 border-red-100 rounded-t-3xl" />
+                         </div>
+
+                         <div className="grid grid-cols-2 gap-20 mb-8 relative w-full px-12">
+                            <div className="flex flex-col items-center text-center">
+                               <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center p-2 mb-2">
+                                  <img src="https://upload.wikimedia.org/wikipedia/commons/e/e4/Swachh_Bharat_Abhiyan_logo.png" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                               </div>
+                               <div className="text-[10px] font-black leading-tight uppercase">IMC Authority</div>
+                               <div className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Indore Corp</div>
+                            </div>
+                            <div className="flex flex-col items-center text-center opacity-40">
+                               <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-2">
+                                  <div className="text-[10px] font-black text-slate-300">!</div>
+                               </div>
+                               <div className="text-[10px] font-black leading-tight uppercase">Corporator</div>
+                               <div className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Vacant</div>
+                            </div>
+                         </div>
+
+                         {/* Vertical Line */}
+                         <div className="w-0.5 h-48 bg-slate-100 absolute top-20 z-0" />
+
+                         {[
+                           { role: 'Commissioner', tag: 'IMC HQ', init: 'SC' },
+                           { role: 'Zonal Officer', tag: 'Zonal Zone', init: 'ZO' },
+                           { role: 'CSI & AEE', tag: 'Ward Monitor', init: 'CSI' },
+                         ].map((node, i) => (
+                           <div key={i} className="flex flex-col items-center mt-12 relative z-10 bg-white px-4">
+                              <div className="w-12 h-12 rounded-2xl bg-blue-100 border border-blue-200 flex items-center justify-center font-black text-blue-600 mb-3 shadow-sm">
+                                 {node.init}
+                              </div>
+                              <div className="text-[11px] font-black uppercase text-slate-900">{node.role}</div>
+                              <div className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">{node.tag}</div>
+                           </div>
+                         ))}
+                      </div>
+
+                      <div className="mt-12 pt-8 border-t border-dashed border-slate-200">
+                         <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest text-center mb-6">Elected Representatives</div>
+                         <div className="flex justify-center gap-12">
+                            <div className="flex flex-col items-center">
+                               <div className="w-16 h-16 rounded-full overflow-hidden mb-3 border-4 border-slate-50">
+                                  <div className="w-full h-full bg-slate-100 flex items-center justify-center font-black text-accent text-lg">
+                                     {selectedReport.mla.avatar}
+                                  </div>
+                               </div>
+                               <div className="text-[11px] font-black">{selectedReport.mla.name}</div>
+                               <div className="text-[8px] font-black text-accent uppercase">MLA · {selectedReport.mla.party}</div>
+                            </div>
+                            <div className="flex flex-col items-center">
+                               <div className="w-16 h-16 rounded-full overflow-hidden mb-3 border-4 border-slate-50">
+                                  <div className="w-full h-full bg-slate-100 flex items-center justify-center font-black text-orange-500 text-lg">
+                                     SM
+                                  </div>
+                               </div>
+                               <div className="text-[11px] font-black">Shankar Lalwani</div>
+                               <div className="text-[8px] font-black text-orange-500 uppercase">MP · BJP</div>
+                            </div>
+                         </div>
+                      </div>
+
+                      <div className="mt-12 space-y-3">
+                         <button className="w-full bg-emerald-500 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 hover:bg-emerald-600 transition-all">
+                            <MessageSquare className="w-4 h-4" />
+                            File Indore Corp Complaint
+                         </button>
+                         <button 
+                           onClick={() => {
+                             setReports(prev => prev.map(r => r.id === selectedReport.id ? { ...r, status: 'resolved' } : r));
+                             setSelectedReport(null);
+                           }}
+                           className="w-full bg-slate-100 text-slate-900 font-black py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-200 transition-all"
+                         >
+                            <CheckCircle2 className="w-4 h-4" />
+                            It is Cleaned Up — Verify
+                         </button>
+                         <div className="text-center text-[9px] font-bold text-slate-400 flex items-center justify-center gap-1">
+                            <Shield className="w-3 h-3 text-emerald-500" /> All reports are anonymous
+                         </div>
+                      </div>
                    </div>
                 </div>
              </motion.div>

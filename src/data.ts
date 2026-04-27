@@ -6,10 +6,14 @@ export const INITIAL_REPORTS: Report[] = [
     lat: 22.7533,
     lng: 75.8937,
     status: 'open',
-    severity: 'high',
+    severity: 'Severe',
+    severityLevel: 8,
+    wasteType: 'Mixed Waste',
+    seenCount: 14,
+    reportCount: 3,
     ward: 'Ward 12 · Vijay Nagar',
-    location: 'Scheme No. 54, Near AB Road',
-    timestamp: '2 hours ago',
+    location: '5th Main Road Extension, near Bridge',
+    timestamp: '2 days ago',
     mla: {
       name: 'Ramesh Mendola',
       ward: 'Indore-2',
@@ -22,9 +26,13 @@ export const INITIAL_REPORTS: Report[] = [
     lat: 22.7153,
     lng: 75.8537,
     status: 'resolved',
-    severity: 'medium',
+    severity: 'Moderate',
+    severityLevel: 4,
+    wasteType: 'Organic',
+    seenCount: 5,
+    reportCount: 1,
     ward: 'Ward 31 · Rajwada',
-    location: 'Rajwada Chowk, Old City Area',
+    location: 'Sarafa Bazaar Entrance',
     timestamp: '1 day ago',
     mla: {
       name: 'Rakesh Shukla (Golu)',
@@ -38,7 +46,11 @@ export const INITIAL_REPORTS: Report[] = [
     lat: 22.7441,
     lng: 75.8361,
     status: 'open',
-    severity: 'high',
+    severity: 'Critical',
+    severityLevel: 10,
+    wasteType: 'Mixed Waste',
+    seenCount: 42,
+    reportCount: 7,
     ward: 'Ward 1 · Banganga',
     location: 'Near Banganga Railway Crossing',
     timestamp: '5 hours ago',
@@ -47,22 +59,6 @@ export const INITIAL_REPORTS: Report[] = [
       ward: 'Indore-1',
       party: 'BJP',
       avatar: 'KV'
-    }
-  },
-  {
-    id: '4',
-    lat: 22.6958,
-    lng: 75.8322,
-    status: 'open',
-    severity: 'medium',
-    ward: 'Ward 45 · Annapurna',
-    location: 'Annapurna Mandir Backside',
-    timestamp: 'Just now',
-    mla: {
-      name: 'Malini Gaur',
-      ward: 'Indore-4',
-      party: 'BJP',
-      avatar: 'MG'
     }
   }
 ];
