@@ -4,32 +4,33 @@
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Syne", sans-serif;
   
-  --color-bg: #0a0c0f;
-  --color-surface: #111418;
-  --color-surface-2: #181d24;
-  --color-border: #1e252f;
-  --color-accent: #f5c842;
-  --color-accent-2: #e8441a;
-  --color-text-muted: #6b7580;
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-accent: #10b981;
+  --color-accent-2: #f59e0b;
+  --color-text-main: #0f172a;
+  --color-text-muted: #64748b;
 }
 
 @layer base {
   body {
-    @apply bg-bg text-gray-100 font-sans;
+    @apply bg-bg text-text-main font-sans;
   }
 }
 
-/* Leaflet Dark Mode Filter */
+/* Standard Map View */
 .leaflet-tile-pane {
-  filter: brightness(0.55) saturate(0.4) hue-rotate(190deg);
+  filter: none;
 }
 
 .leaflet-container {
-  background: #0d1117 !important;
+  background: #f1f5f9 !important;
 }
 
 .custom-popup .leaflet-popup-content-wrapper {
-  @apply bg-surface border border-border rounded-xl shadow-2xl text-gray-100;
+  @apply bg-surface border border-border rounded-xl shadow-xl text-text-main;
 }
 
 .custom-popup .leaflet-popup-tip {
